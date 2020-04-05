@@ -255,17 +255,16 @@ When REFRESH is non nil refresh infos from server."
   (let ((buf (get-buffer-create mu4e-main-buffer-name)))
     (if (eq mu4e-split-view 'single-window)
         (if (buffer-live-p (mu4e-get-headers-buffer))
-	    (switch-to-buffer (mu4e-get-headers-buffer))
-	  (mu4e~main-menu))
+	        (switch-to-buffer (mu4e-get-headers-buffer))
+	      (mu4e~main-menu))
       ;; `mu4e~main-view' is called from `mu4e~start', so don't call it
       ;; a second time here i.e. do not refresh unless specified
       ;; explicitely with REFRESH arg.
       (switch-to-buffer buf)
       (with-current-buffer buf
-        (mu4e-main-mode)
         (mu4e~main-view-real-1 refresh))
       (goto-char (point-min)))
-  (add-to-list 'global-mode-string '(:eval (mu4e-context-label)))))
+    (add-to-list 'global-mode-string '(:eval (mu4e-context-label)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interactive functions
