@@ -55,6 +55,8 @@
  (gnu packages m4)
  (gnu packages emacs)
  (gnu packages mail)
+ (gnu packages guile)
+ (gnu packages search)
  (gnu packages emacs-xyz)
  (gnu packages pkg-config)
  (gnu packages glib)
@@ -89,80 +91,86 @@ newspace."
 (define mu-git
   (let ((commit (current-commit)))
     (package
-      (inherit mu)
-      (version (string-append (current-version)
-                              "-" (string-take commit 7)))
-      (source (local-file %source-dir
-                          #:recursive? #t
-                          #:select? (git-predicate %source-dir)))
-      (arguments
-       `(#:modules ((guix build gnu-build-system)
-                    (guix build utils)
-                    (guix build emacs-utils))
-                   #:imported-modules (,@%gnu-build-system-modules
-                                       (guix build emacs-utils))
-                   #:phases
-                   (modify-phases %standard-phases
-                     (add-after 'unpack 'autogen
-                       (lambda _
-                         (setenv "CONFIG_SHELL" (which "sh"))
-                         (zero? (system* "sh" "autogen.sh"))
-                         ;; replace final line in autogen.sh with the below
-                         (zero? (system* "sh" "configure" "--config-cache"))))
-                     (add-after 'unpack 'patch-configure
-                       ;; By default, elisp code goes to "share/emacs/site-lisp/mu4e",
-                       ;; so our Emacs package can't find it.  Setting "--with-lispdir"
-                       ;; configure flag doesn't help because "mu4e" will be added to
-                       ;; the lispdir anyway, so we have to modify "configure.ac".
-                       (lambda _
-                         (substitute* "configure.ac"
-                           (("^ +lispdir=\"\\$\\{lispdir\\}/mu4e/\".*") "")
-                           ;; Use latest Guile
-                           (("guile-2.0") "guile-2.2"))
-                         #t))
-                     (add-after 'unpack 'patch-bin-sh-in-tests
-                       (lambda _
-                         (substitute* '("guile/tests/test-mu-guile.c"
-                                        "mu/test-mu-cmd.cc"
-                                        "mu/test-mu-cmd-cfind.cc"
-                                        "mu/test-mu-query.cc"
-                                        "mu/test-mu-threads.cc")
-                           (("/bin/sh") (which "sh")))
-                         #t))
-                     (add-before 'install 'fix-ffi
-                       (lambda* (#:key outputs #:allow-other-keys)
-                         (substitute* "guile/mu.scm"
-                           (("\"libguile-mu\"")
-                            (format #f "\"~a/lib/libguile-mu\""
-                                    (assoc-ref outputs "out"))))
-                         #t))
-                     (add-before 'check 'check-tz-setup
-                       (lambda* (#:key inputs #:allow-other-keys)
-                         ;; For mu/test/test-mu-query.c
-                         (setenv "TZDIR"
-                                 (string-append (assoc-ref inputs "tzdata")
-                                                "/share/zoneinfo"))
-                         #t))
-                     (add-after 'install 'install-emacs-autoloads
-                       (lambda* (#:key outputs #:allow-other-keys)
-                         (emacs-generate-autoloads
-                          "mu4e"
-                          (string-append (assoc-ref outputs "out")
-                                         "/share/emacs/site-lisp"))
-                         #t)))))
-      (native-inputs
-       `(("pkg-config" ,pkg-config)
-         ;; 'emacs-minimal' does not find Emacs packages (this is for
-         ;; "guix environment").
-         ("emacs" ,emacs-no-x)
-         ("glib" ,glib "bin")           ; for gtester
-         ("autoconf" ,autoconf)
-         ("libtool" ,libtool)
-         ("m4" ,m4)
-         ("automake" ,automake)
-         ("texinfo" ,texinfo)
-         ("tzdata" ,tzdata-for-tests)   ; for mu/test/test-mu-query.c
-         )))))
+     (inherit mu)
+     (version (string-append (current-version)
+                             "-" (string-take commit 7)))
+     (source (local-file %source-dir
+                         #:recursive? #t
+                         #:select? (git-predicate %source-dir)))
+     (arguments
+      `(#:modules ((guix build gnu-build-system)
+                   (guix build utils)
+                   (guix build emacs-utils))
+                  #:imported-modules (,@%gnu-build-system-modules
+                                      (guix build emacs-utils))
+                  #:phases
+                  (modify-phases %standard-phases
+                                 (add-after 'unpack 'autogen
+                                            (lambda _
+                                              (setenv "CONFIG_SHELL" (which "sh"))
+                                              (zero? (system* "sh" "autogen.sh"))
+                                              ;; replace final line in autogen.sh with the below
+                                              (zero? (system* "sh" "configure" "--config-cache"))))
+                                 (add-after 'unpack 'patch-configure
+                                            ;; By default, elisp code goes to "share/emacs/site-lisp/mu4e",
+                                            ;; so our Emacs package can't find it.  Setting "--with-lispdir"
+                                            ;; configure flag doesn't help because "mu4e" will be added to
+                                            ;; the lispdir anyway, so we have to modify "configure.ac".
+                                            (lambda _
+                                              (substitute* "configure.ac"
+                                                           (("^ +lispdir=\"\\$\\{lispdir\\}/mu4e/\".*") "")
+                                                           ;; Use latest Guile
+                                                           (("guile-2.0") "guile-2.2"))
+                                              #t))
+                                 (add-after 'unpack 'patch-bin-sh-in-tests
+                                            (lambda _
+                                              (substitute* '("guile/tests/test-mu-guile.cc"
+                                                             "mu/test-mu-cmd.cc"
+                                                             "mu/test-mu-cmd-cfind.cc"
+                                                             "mu/test-mu-query.cc"
+                                                             "mu/test-mu-threads.cc")
+                                                           (("/bin/sh") (which "sh")))
+                                              #t))
+                                 (add-before 'install 'fix-ffi
+                                             (lambda* (#:key outputs #:allow-other-keys)
+                                               (substitute* "guile/mu.scm"
+                                                            (("\"libguile-mu\"")
+                                                             (format #f "\"~a/lib/libguile-mu\""
+                                                                     (assoc-ref outputs "out"))))
+                                               #t))
+                                 (add-before 'check 'check-tz-setup
+                                             (lambda* (#:key inputs #:allow-other-keys)
+                                               ;; For mu/test/test-mu-query.c
+                                               (setenv "TZDIR"
+                                                       (string-append (assoc-ref inputs "tzdata")
+                                                                      "/share/zoneinfo"))
+                                               #t))
+                                 (add-after 'install 'install-emacs-autoloads
+                                            (lambda* (#:key outputs #:allow-other-keys)
+                                              (emacs-generate-autoloads
+                                               "mu4e"
+                                               (string-append (assoc-ref outputs "out")
+                                                              "/share/emacs/site-lisp"))
+                                              #t)))))
+     (native-inputs
+      `(("pkg-config" ,pkg-config)
+        ;; 'emacs-minimal' does not find Emacs packages (this is for
+        ;; "guix environment").
+        ("emacs" ,emacs-no-x)
+        ("glib" ,glib "bin")            ; for gtester
+        ("autoconf" ,autoconf)
+        ("libtool" ,libtool)
+        ("m4" ,m4)
+        ("automake" ,automake)
+        ("texinfo" ,texinfo)
+        ("tzdata" ,tzdata-for-tests)    ; for mu/test/test-mu-query.c
+        ))
+     (inputs
+      `(("xapian" ,xapian)
+        ;; use updated guile -- supported by f4282d95353511fdf6a5ef5025a8922dc4937c34
+        ("guile" ,guile-3.0)
+        ("glib" ,glib)
+        ("gmime" ,gmime))))))
 
 mu-git
 
