@@ -127,8 +127,7 @@ newspace."
                                               (substitute* '("guile/tests/test-mu-guile.cc"
                                                              "mu/test-mu-cmd.cc"
                                                              "mu/test-mu-cmd-cfind.cc"
-                                                             "mu/test-mu-query.cc"
-                                                             "mu/test-mu-threads.cc")
+                                                             "mu/test-mu-query.cc")
                                                            (("/bin/sh") (which "sh")))
                                               #t))
                                  (add-before 'install 'fix-ffi
